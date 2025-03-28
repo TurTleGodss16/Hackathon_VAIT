@@ -1,12 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "NvVfbt8gISarFLrk2Q3Qzzj1AZapkpfk5NvfqYbOXTl45xZnoPira9K4hkmJweLv5640QhMy1RdYF5S56/CNKg==",
+  "dgSpecHash": "NvVkkWh7sIy9klXOUaOxCXJGwF1Ef7Vt84b7i8Mh43F2vUVh9V4fq/auO2jlorVIvPnhu0e8zQnyf3rv3R9I2A==",
   "success": true,
   "projectFilePath": "/home/dang/Hackathon_VAIT_New/Hackathon_VAIT_New.csproj",
-  "expectedPackageFiles": [
-    "/home/dang/.nuget/packages/microsoft.netcore.app.ref/7.0.20/microsoft.netcore.app.ref.7.0.20.nupkg.sha512",
-    "/home/dang/.nuget/packages/microsoft.aspnetcore.app.ref/7.0.20/microsoft.aspnetcore.app.ref.7.0.20.nupkg.sha512",
-    "/home/dang/.nuget/packages/microsoft.netcore.app.host.linux-x64/7.0.20/microsoft.netcore.app.host.linux-x64.7.0.20.nupkg.sha512"
-  ],
+  "expectedPackageFiles": [],
   "logs": []
 }
