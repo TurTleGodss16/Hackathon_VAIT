@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Hackathon_VAIT_New")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+89047cbf849166cd2ce8b5a761d1faa7c2ae863f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Hackathon_VAIT_New")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Hackathon_VAIT_New")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
