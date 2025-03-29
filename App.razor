@@ -1,7 +1,9 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
+﻿<link href="_content/Blazor.Bootstrap/blazor.bootstrap.css" rel="stylesheet"/>
+
+<Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+        <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
     </Found>
     <NotFound>
         <PageTitle>Not found</PageTitle>
