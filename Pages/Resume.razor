@@ -3,6 +3,12 @@
 @using System.Threading.Tasks
 @using Hackathon_VAIT_New.Services
 @using Hackathon_VAIT_New.Model
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject ILogger<Resume> Logger
+@inject HttpClient Client
 
 @inject FirebaseStorageServices firebaseStorageService
 @inject IJSRuntime jsRuntime
@@ -22,26 +28,52 @@
 @if (isUploadFormVisible)
 {
     <!-- Upload Form -->
-    <EditForm Model="uploadModel" OnValidSubmit="HandleValidSubmit">
+    <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
         <DataAnnotationsValidator />
         <ValidationSummary />
 
-        <InputFile OnChange="HandleFileSelected" />
+        @if(Model.SelectedResume == null && Model.ResumeFile == null)
+        {
+            <InputFile accept=".pdf" @bind-Value="Model!.ResumeFile"
+                       OnChange="args => { Model.ResumeFile = args.File;}"/>
+        }
+
+        @if (Model.ResumeFile != null)
+        {
+            <p><strong>Selected File:</strong> @Model.ResumeFile.Name</p>
+        }
+        else if (Model.SelectedResume != null)
+        {
+            <p><strong>Selected File:</strong> @Model.SelectedResume.Name</p>
+        }
 
         <button type="submit" class="btn btn-primary" disabled="@isUploading">
             Upload PDF
         </button>
     </EditForm>
-}
 
-@if (uploadSuccess)
-{
-    <p>File uploaded successfully!</p>
-}
+   <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
+                       class="form-control"
 
-@if (uploadError)
-{
-    <p class="text-danger">Error uploading file: @errorMessage</p>
+            />
+
+    @if (uploadSuccess)
+    {
+        <p>File uploaded successfully!</p>
+    }
+
+    @if (uploadError)
+    {
+        <p class="text-danger">Error uploading file: @errorMessage</p>
+    }
+
+    @if (!string.IsNullOrEmpty(AIFeedback))
+    {
+        <div class="alert alert-info">
+            <p class="h4">Feedback</p>
+            <Markdown style="max-height: 600px;overflow-y:auto;">@AIFeedback</Markdown>
+        </div>
+    }
 }
 
 @if(isLoading)
@@ -77,6 +109,7 @@ else
                             <td>@(file.FileSize / 1024) KB</td>
                             <td>
                                 <button class="btn btn-sm btn-primary" @onclick='() => DownloadResume("test123", file.Id)'>Download</button>
+                                <button class="btn btn-sm btn-success" @onclick='() => SelectResume(file)'>Select</button>
                             </td>
                         </tr>
                     }
@@ -102,7 +135,14 @@ else
     private List<PdfFileMetaData> resumeList = new List<PdfFileMetaData>();
     private bool isUploadFormVisible = true;
     private bool isHistoryVisible = false;
+    private string JobDescriptionUrl;
+    private string AIFeedback;
+    [SupplyParameterFromForm] private ResumeAnalyserModel? Model { get; set; }
 
+    protected override void OnInitialized()
+    {
+        Model ??= new ResumeAnalyserModel();
+    }
     private void ShowUploadForm()
     {
         isUploadFormVisible = true;
@@ -122,7 +162,7 @@ else
 
     private async Task HandleValidSubmit()
     {
-        if (selectedFile == null)
+        if (Model.ResumeFile == null && Model.SelectedResume == null)
         {
             errorMessage = "Please select a PDF file.";
             uploadError = true;
@@ -136,8 +176,69 @@ else
             uploadError = false;
 
             string userId = "test123";
-            await firebaseStorageService.UploadPdfAsBinaryAsync(selectedFile, userId);
+            if(Model.ResumeFile != null)
+                await firebaseStorageService.UploadPdfAsBinaryAsync(Model.ResumeFile, userId);
+
             uploadSuccess = true;
+
+            var resumeDataUrl = new object();
+
+            if(Model.ResumeFile != null)
+            {
+                resumeDataUrl = await GetDataURL(Model.ResumeFile);
+            }
+            else if (Model.SelectedResume != null)
+            {
+                resumeDataUrl = await GetDataURL(Model.SelectedResume.FileBytes);
+            }
+
+            var requestData = new
+            {
+                model = "gpt-4o-mini",
+                input = new JsonArray
+                {
+                    new { role = "system", content = "Scrape job description and give feedback based on user resume file. Maximum length of reponse is 250 words" },
+
+                    new
+                    {
+                        role = "user", content =
+                            new JsonArray
+                            {
+                                new { type = "input_text", text = "JD Link: " + Model?.JobDescriptionLink },
+                                new { type = "input_file", filename = Model.ResumeFile != null ? Model!.ResumeFile.Name : Model.SelectedResume.Name, file_data = resumeDataUrl },
+                            },
+                    },
+                },
+                text = new
+                {
+                    format = new
+                    {
+                        type = "text"
+                    }
+                },
+                tools = new JsonArray
+                {
+                    new
+                    {
+                        type = "web_search_preview",
+                        user_location = new
+                        {
+                            type = "approximate",
+                            country = "AU"
+                        },
+                        search_context_size = "medium"
+                    }
+                },
+                max_output_tokens = 512
+            };
+            var jsonContent = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+            var response = await Client.PostAsync("https://api.openai.com/v1/responses", jsonContent);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var responseObject = JsonSerializer.Deserialize<OpenAIResponse>(responseContent);
+            if(responseObject != null)
+                AIFeedback = responseObject?.output[0].content[0].text ?? string.Empty;
+                
+            Logger.LogInformation(responseContent);
         }
         catch (Exception ex)
         {
@@ -202,5 +303,90 @@ else
             uploadError = true;
             errorMessage = "Error downloading file: " + ex.Message;
         }
+    }
+
+    private async Task<string> GetDataURL(object file)
+    {
+        try
+        {
+            if (file is IBrowserFile pdfFile)
+            {
+                using var stream = pdfFile.OpenReadStream();
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                byte[] bytes = memoryStream.ToArray();
+
+                return "data:" + pdfFile.ContentType + ";base64," + Convert.ToBase64String(bytes);
+            }
+            else if (file is byte[] fileBytes)
+            {
+                return "data:application/pdf;base64," + Convert.ToBase64String(fileBytes);
+            }
+
+            return null;
+        }
+        catch(Exception ex)
+        {
+            throw new Exception("Error converting file to Data URL: " + ex.Message);
+        }
+    }
+
+    private async Task SelectResume(PdfFileMetaData file)
+    {
+        try
+        {
+            string userId = "test123";
+            byte[] fileBytes = await firebaseStorageService.DownloadResumePdfFile(userId, file.Id);
+            
+            if (fileBytes != null)
+            {
+                Model!.SelectedResume = new SelectedFile
+                {
+                    Name = file.FileName,
+                    FileBytes = fileBytes
+                };
+
+                // Notify UI
+                isUploadFormVisible = true;
+                isHistoryVisible = false;
+                StateHasChanged();
+            }
+        }
+        catch(Exception ex)
+        {
+            throw new Exception("Error selecting resume: " + ex.Message);
+        }
+    }
+
+    public class ResumeAnalyserModel
+    {
+        [DataType(DataType.Upload)] public IBrowserFile? ResumeFile { get; set; }
+
+        [Required] [DataType(DataType.Text)] public string JobDescriptionLink { get; set; } = string.Empty;
+
+        [DataType(DataType.Text)] public string? Message { get; set; } = string.Empty;
+        public SelectedFile? SelectedResume { get; set; }
+    }
+
+    public class OpenAIResponse
+    {
+        public Output[] output { get; set; }
+
+        public class Output
+        {
+            public Content[] content { get; set; }
+        }
+
+        public class Content
+        {
+            public string text { get; set; }
+        }
+    }
+
+    public class SelectedFile
+    {
+        public string Name { get; set; } = string.Empty;
+        public string ContentType { get; set; } = "application/pdf";
+        public byte[] FileBytes { get; set; } = Array.Empty<byte>();
     }
 }
