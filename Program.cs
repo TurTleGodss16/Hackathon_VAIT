@@ -14,13 +14,14 @@ builder.Services.AddBlazorBootstrap();
 
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
-builder.Services.AddSingleton<FirebaseStorageService>();
+builder.Services.AddSingleton<FirebaseStorageServices>();
 builder.Services.AddSingleton<OpenAIService>();
 
 builder.Services.AddScoped(sp => new HttpClient(new AddHeadersDelegatingHandler())
 {
     BaseAddress = new Uri("https://api.openai.com/v1/responses")
 });
+
 
 var app = builder.Build();
 
