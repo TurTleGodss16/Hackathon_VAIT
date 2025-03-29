@@ -56,8 +56,8 @@
 
         <br/>
         <button type="submit" class="btn btn-primary" disabled="@isUploading">
-                Generate feedback
-        </button>           
+            Generate feedback
+        </button>
     </EditForm>
     <br/>
 
@@ -76,7 +76,7 @@
         </Card>
         <br/>
     }
-   
+
     @if (uploadSuccess && jobSummary == null)
     {
         <p><i class="fa fa-check-circle" style="color: green;"></i> File uploaded successfully!</p>
@@ -87,7 +87,7 @@
         <p class="text-danger">Error uploading file: @errorMessage</p>
     }
 
-    @if(isLoadingMain)
+    @if (isLoadingMain)
     {
         <div class="d-flex justify-content-center">
             <div class="spinner-border text-primary" role="status">
@@ -117,7 +117,7 @@
                     <tr>
                         <td>@referer.Name</td>
                         <td>@referer.DiscordId</td>
-                        <td>@referer.Email</td>
+                        <td><a href="mailto:@referer.Email" class="link-info" target="_blank">@referer.Email</a></td>
                         <td>
                             <a href="http://discordapp.com/users/@referer.DiscordId"
                                class="link-primary" target="_blank">Send message</a>
@@ -127,7 +127,7 @@
             }
             </tbody>
         </table>
-        <table class="table table-bordered table-striped mb-2">
+        <table class="table table-bordered table-striped mb-2 mb-4">
             <thead>
             <tr>
                 <th>Reviewer</th>
@@ -143,7 +143,7 @@
                     <tr>
                         <td>@referer.Name</td>
                         <td>@referer.DiscordId</td>
-                        <td>@referer.Email</td>
+                        <td><a href="mailto:@referer.Email" class="link-info" target="_blank">@referer.Email</a></td>
                         <td>
                             <a href="http://discordapp.com/users/@referer.DiscordId"
                                class="link-primary" target="_blank">Send message</a>
@@ -153,6 +153,7 @@
             }
             </tbody>
         </table>
+        <div style="height: 40px;"></div>
     }
 }
 
@@ -289,7 +290,7 @@ else
                 model = "gpt-4o-mini",
                 input = new JsonArray
                 {
-                    new { role = "system", content = "Scrape job description and give feedback based on user resume file. Maximum length of reponse is 250 words" },
+                    new { role = "system", content = "Scrape job description and give feedback based on user resume file. Maximum length of response is 300 words." },
 
                     new
                     {
