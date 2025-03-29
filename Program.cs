@@ -10,8 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
-builder.Services.AddSingleton<FirebaseStorageService>();
-
+builder.Services.AddSingleton<FirebaseStorageServices>();
 
 var app = builder.Build();
 

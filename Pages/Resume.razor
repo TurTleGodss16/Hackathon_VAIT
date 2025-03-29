@@ -1,25 +1,206 @@
 @page "/resume"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Threading.Tasks
+@using Hackathon_VAIT_New.Services
+@using Hackathon_VAIT_New.Model
 
-@using Hackathon_VAIT_New.Services;
-
+@inject FirebaseStorageServices firebaseStorageService
 @inject IJSRuntime jsRuntime
-@inject FirebaseStorageService firebaseStorageService
 
-<div>
+<h3>Upload Your Resume (PDF)</h3>
 
+<!-- Buttons for New Upload and Resume History -->
+<div class="mb-3">
+    <button class="btn-custom @((isUploadFormVisible ? "btn-selected" : "btn-unselected"))" @onclick="ShowUploadForm">
+        New Upload
+    </button>
+    <button class="btn-custom @((isHistoryVisible ? "btn-selected" : "btn-unselected"))" @onclick="ShowFileHistory">
+        Resume History
+    </button>
 </div>
 
+@if (isUploadFormVisible)
+{
+    <!-- Upload Form -->
+    <EditForm Model="uploadModel" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <InputFile OnChange="HandleFileSelected" />
+
+        <button type="submit" class="btn btn-primary" disabled="@isUploading">
+            Upload PDF
+        </button>
+    </EditForm>
+}
+
+@if (uploadSuccess)
+{
+    <p>File uploaded successfully!</p>
+}
+
+@if (uploadError)
+{
+    <p class="text-danger">Error uploading file: @errorMessage</p>
+}
+
+@if(isLoading)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (isHistoryVisible)
+    {
+        <h4>Recent uploaded</h4>
+        @if (resumeList != null && resumeList.Count > 0)
+        {
+            <table class="table table-striped mt-3">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Upload Date</th>
+                        <th>Size (KB)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in resumeList)
+                    {
+                        <tr>
+                            <td>@file.FileName</td>
+                            <td>@file.UploadDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@(file.FileSize / 1024) KB</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick='() => DownloadResume("test123", file.Id)'>Download</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>No resume history available.</p>
+        }
+    }
+}
+
+
 @code {
-    public async Task<string> UploadResume()
+    private IBrowserFile selectedFile;
+    private bool isUploading = false;
+    private bool uploadSuccess = false;
+    private bool uploadError = false;
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private object uploadModel = new object();
+    private List<PdfFileMetaData> resumeList = new List<PdfFileMetaData>();
+    private bool isUploadFormVisible = true;
+    private bool isHistoryVisible = false;
+
+    private void ShowUploadForm()
+    {
+        isUploadFormVisible = true;
+        isHistoryVisible = false;
+    }
+    private void ShowFileHistory()
+    {
+        isUploadFormVisible = false;
+        isHistoryVisible = true;
+        LoadFileHistory("test123");
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (selectedFile == null)
+        {
+            errorMessage = "Please select a PDF file.";
+            uploadError = true;
+            return;
+        }
+
+        try
+        {
+            isUploading = true;
+            uploadSuccess = false;
+            uploadError = false;
+
+            string userId = "test123";
+            await firebaseStorageService.UploadPdfAsBinaryAsync(selectedFile, userId);
+            uploadSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            uploadError = true;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task LoadFileHistory(string userId)
     {
         try
         {
-            return await firebaseStorageService.UploadPDFAsync("Test");
+            isLoading = true;
+            if (String.IsNullOrEmpty(userId))
+            {
+                errorMessage = "User ID cannot be null or empty.";
+                uploadError = true;
+                return;
+            }
+
+            resumeList = await firebaseStorageService.GetResumeHistory(userId);
+            if(resumeList != null && resumeList.Any())
+                isLoading = false;
+
+            StateHasChanged();
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
-            return "";
+            uploadError = true;
+            isLoading = false;
+            errorMessage = "Error loading file history: " + ex.Message;
+        }
+    }
+
+    private async Task DownloadResume(string userId, string fileId)
+    {
+        try
+        {
+            if (String.IsNullOrEmpty(userId) || String.IsNullOrEmpty(fileId))
+            {
+                errorMessage = "User ID and File ID cannot be null or empty.";
+                uploadError = true;
+                return;
+            }
+
+            byte[] fileBytes = await firebaseStorageService.DownloadResumePdfFile(userId, fileId);
+
+            if (fileBytes != null)
+            {
+                string fileName = "DownloadedResume.pdf";
+                string contentType = "application/pdf";
+                var dashboardModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "../../Pages/Resume.razor.js");
+                await jsRuntime.InvokeVoidAsync("downloadFile", fileName, contentType, fileBytes);
+            }
+        }
+        catch (Exception ex)
+        {
+            uploadError = true;
+            errorMessage = "Error downloading file: " + ex.Message;
         }
     }
 }
