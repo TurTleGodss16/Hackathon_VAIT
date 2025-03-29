@@ -10,6 +10,8 @@
 
 <h3>Find mock interview peer</h3>
 
+<input type="text" @oninput="HandleSearchInput" placeholder="Search by name, company, role, language..." class="form-control mb-2" />
+
 <div class="d-flex flex-row flex-wrap gap-4 p-2">
 
     @if (mockInterviewProfiles.Count > 0)
@@ -75,10 +77,48 @@
 @code {
 
     List<MockInterviewProfile> mockInterviewProfiles = new List<MockInterviewProfile>();
+    List<MockInterviewProfile> allMockInterviewProfiles = new List<MockInterviewProfile>(); // To store the original data
+    private string searchQuery = "";
 
     protected override async Task OnInitializedAsync()
     {
-        mockInterviewProfiles = await firebaseStorageService.GetMockProfiles();
+        allMockInterviewProfiles = await firebaseStorageService.GetMockProfiles();
+        mockInterviewProfiles = new List<MockInterviewProfile>(allMockInterviewProfiles);
+    }
+     private void HandleSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? string.Empty;
+        Search();
+    }
+
+    private void Search()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                mockInterviewProfiles = allMockInterviewProfiles
+                    .Where(p => (p.User?.Name?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (p.User?.CompanyName?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                (p.User?.Title?.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                                p.PreferredLanguage.Any(lang => lang.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                ResetSearch();
+            }
+        }
+        catch(Exception ex)
+        {
+            throw new Exception("Error while searching for profiles: " + ex.Message);
+        }
+    }
+
+    private void ResetSearch()
+    {
+        searchQuery = "";
+        mockInterviewProfiles = new List<MockInterviewProfile>(allMockInterviewProfiles);
     }
 
     public void OpenLink(string link)
