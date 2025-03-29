@@ -137,6 +137,8 @@ DocProject/Help/html
 
 # Click-Once directory
 publish/
+bin/
+obj/
 
 # Publish Web Output
 *.[Pp]ublish.xml
@@ -258,6 +260,9 @@ paket-files/
 
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
+*.pyc.env
+.env
+
 *.pyc
 obj/Debug/net8.0/Hackathon_VAIT_New.AssemblyInfo.cs
 obj/Debug/net8.0/Hackathon_VAIT_New.AssemblyInfoInputs.cache
