@@ -72,7 +72,7 @@
         <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
                    class="form-control"/>
     }
-   
+
 
     @if (uploadSuccess)
     {
@@ -95,6 +95,7 @@
                 <th>Referer</th>
                 <th>Discord ID</th>
                 <th>Email</th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
@@ -105,6 +106,10 @@
                         <td>@referer.Name</td>
                         <td>@referer.DiscordId</td>
                         <td>@referer.Email</td>
+                        <td>
+                            <a href="http://discordapp.com/users/@referer.DiscordId"
+                               class="link-primary" target="_blank">Send message</a>
+                        </td>
                     </tr>
                 }
             }
@@ -116,6 +121,7 @@
                 <th>Reviewer</th>
                 <th>Discord ID</th>
                 <th>Email</th>
+                <th></th>
             </tr>
             </thead>
             <tbody>
@@ -126,6 +132,10 @@
                         <td>@referer.Name</td>
                         <td>@referer.DiscordId</td>
                         <td>@referer.Email</td>
+                        <td>
+                            <a href="http://discordapp.com/users/@referer.DiscordId"
+                               class="link-primary" target="_blank">Send message</a>
+                        </td>
                     </tr>
                 }
             }
