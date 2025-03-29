@@ -264,3 +264,5 @@ __pycache__/
 .env
 
 *.pyc
+
+firebase.json
