@@ -1,0 +1,74 @@
+@page "/users"
+@using Hackathon_VAIT_New.Model
+@using Hackathon_VAIT_New.Services
+@inject FirebaseStorageServices firebaseStorageService
+
+<div class="d-flex flex-column gap-2 p-2">
+    <h3>User List</h3>
+
+    @{
+        if (userList.Count > 0)
+        {
+            <table class="table table-striped mt-3">
+                <thead>
+                <tr>
+                    <th></th>
+                    <th>User</th>
+                    <th>Current Role</th>
+                    <th>Discord ID</th>
+                    <th>Company</th>
+                    <th>Employment Status</th>
+                    <th>Reviewer</th>
+
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in userList)
+                {
+                    <tr>
+                        <td>
+                            <Image Src="@item.ProfilePictureUrl"
+                                   Style="width: 40px; height:  40px; object-fit: contain;"></Image>
+                        </td>
+                        <td>@item.Name</td>
+                        <td>@item.Title</td>
+
+                        <td>@item.DiscordId</td>
+                        <td>@item.CompanyName</td>
+                        <td>
+                            @item.EmploymentStatus
+                        </td>
+                        @{
+                            if (item.Roles.Contains(UserRoleType.Reviewer))
+                            {
+                                <td>Yes</td>
+                            }
+                            else
+                            {
+                                <td>No</td>
+                            }
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>No users found.</p>
+        }
+    }
+</div>
+
+@code {
+
+    List<User> userList = new List<User>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize the user list
+        userList = await firebaseStorageService.GetUsers();
+    }
+
+}
+

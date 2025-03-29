@@ -3,8 +3,9 @@
 @using System.Text
 @using System.Text.Json
 @using System.Text.Json.Nodes
+@using Hackathon_VAIT_New.Model
 @using Hackathon_VAIT_New.Services
-@inject FirebaseStorageServices FirebaseStorageService
+@inject FirebaseStorageServices firebaseStorageService
 @inject ILogger<UploadResume> Logger
 @inject HttpClient Client
 
@@ -20,21 +21,85 @@
             />
         </div>
 
-        <div class="d-flex flex-column gap-2" style="min-width: 800px;">
-            <p>Job Description</p>
-            <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
-                       class="form-control"
-
-            />
-            <br/>
+        <div class="d-flex flex-column gap-2" style="min-width: 800px; max-width: 800px;">
+            <div class="d-flex flex-row gap-2 align-items-center">
+                <p class="p-0 m-0">Job Description</p>
+                @{
+                    if (jobSummary != null)
+                    {
+                        <a href="@Model!.JobDescriptionLink" target="_blank" class="link-info">Link</a>
+                    }
+                }
+            </div>
+            @{
+                if (jobSummary != null)
+                {
+                    <Card>
+                        <CardHeader>
+                            <h5>@jobSummary.JobTitle</h5>
+                        </CardHeader>
+                        <CardBody>
+                            <p><strong>Company Name:</strong> @jobSummary.CompanyName</p>
+                            <p><strong>Location:</strong> @jobSummary.JobLocation</p>
+                            <p><strong>Main Responsibility:</strong> @jobSummary.MainResponsibility</p>
+                            <p><strong>Tech Stack:</strong> @string.Join(", ", jobSummary.TechStack)</p>
+                        </CardBody>
+                    </Card>
+                }
+                else
+                {
+                    <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
+                               class="form-control"/>
+                }
+            }
             @{
                 if (!string.IsNullOrEmpty(RenderedText))
                 {
-                    <div class="alert alert-info">
-                        <p class="h4">Feedback</p>
-                        <Markdown style="max-height: 600px;overflow-y:auto;">@RenderedText</Markdown>
+                    <div class="alert mb-2" style="background-color: #82a3ff20;">
+                        <Markdown style="max-height: 580px;overflow-y:auto;">@RenderedText</Markdown>
                     </div>
-                    ;
+                    <table class="table table-striped table-bordered mb-2">
+                        <thead>
+                        <tr>
+                            <th>Referer</th>
+                            <th>Discord ID</th>
+                            <th>Email</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @{
+                            foreach (var referer in referers ?? Enumerable.Empty<User>())
+                            {
+                                <tr>
+                                    <td>@referer.Name</td>
+                                    <td>@referer.DiscordId</td>
+                                    <td>@referer.Email</td>
+                                </tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
+                    <table class="table table-bordered table-striped mb-2">
+                        <thead>
+                        <tr>
+                            <th>Reviewer</th>
+                            <th>Discord ID</th>
+                            <th>Email</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @{
+                            foreach (var referer in reviewers ?? Enumerable.Empty<User>())
+                            {
+                                <tr>
+                                    <td>@referer.Name</td>
+                                    <td>@referer.DiscordId</td>
+                                    <td>@referer.Email</td>
+                                </tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
                 }
                 else
                 {
@@ -74,6 +139,7 @@
         public class Output
         {
             public Content[] content { get; set; }
+            public string type { get; set; }
         }
 
         public class Content
@@ -86,56 +152,163 @@
 
     private bool IsLoading { get; set; } = false;
 
+    private JobSummary? jobSummary { get; set; } = null;
+
+    private List<User>? referers { get; set; } = null;
+    private List<User>? reviewers { get; set; } = null;
+
     private async Task Submit()
     {
-        IsLoading = true;
-        var resumeDataUrl = await GetDataURL(Model!.ResumeFile);
-        var requestData = new
+        try
         {
-            model = "gpt-4o-mini",
-            input = new JsonArray
+            IsLoading = true;
+            var resumeDataUrl = await GetDataURL(Model!.ResumeFile);
+            var requestData = new
             {
-                new { role = "system", content = "Scrape job description and give feedback based on user resume file" },
-
-                new
+                model = "gpt-4o-mini",
+                input = new JsonArray
                 {
-                    role = "user", content =
-                        new JsonArray
-                        {
-                            new { type = "input_text", text = "JD Link: " + Model?.JobDescriptionLink },
-                            new { type = "input_file", filename = Model!.ResumeFile.Name, file_data = resumeDataUrl },
-                        },
-                },
-            },
-            text = new
-            {
-                format = new
-                {
-                    type = "text"
-                }
-            },
-            tools = new JsonArray
-            {
-                new
-                {
-                    type = "web_search_preview",
-                    user_location = new
+                    new { role = "system", content = "Scrape job description and give feedback based on user resume file. Limit your response to fewer than 300 words." },
+                    new
                     {
-                        type = "approximate",
-                        country = "AU"
+                        role = "user", content =
+                            new JsonArray
+                            {
+                                new { type = "input_text", text = "JD Link: " + Model?.JobDescriptionLink },
+                                new { type = "input_file", filename = Model!.ResumeFile.Name, file_data = resumeDataUrl },
+                            },
                     },
-                    search_context_size = "medium"
+                },
+                text = new
+                {
+                    format = new
+                    {
+                        type = "text"
+                    }
+                },
+                tools = new JsonArray
+                {
+                    new
+                    {
+                        type = "web_search_preview",
+                        user_location = new
+                        {
+                            type = "approximate",
+                            country = "AU"
+                        },
+                        search_context_size = "medium"
+                    }
+                },
+                max_output_tokens = 512
+            };
+            // Get company name and job description role and job summary
+            var requestData2 = new
+            {
+                model = "gpt-4o-mini",
+                input = new JsonArray
+                {
+                    new { role = "system", content = "Scrape job description and provide job summary in the structured format." },
+                    new
+                    {
+                        role = "user", content =
+                            new JsonArray
+                            {
+                                new { type = "input_text", text = "JD Link: " + Model?.JobDescriptionLink },
+                            },
+                    },
+                },
+                text = new
+                {
+                    format = new
+                    {
+                        strict = true,
+
+                        type = "json_schema",
+                        name = "job_description",
+                        schema = new
+                        {
+                            type = "object",
+                            properties = new
+                            {
+                                company_name = new { type = "string" },
+                                job_title = new { type = "string" },
+                                main_responsibility = new
+                                {
+                                    type = "string",
+                                    description = "Main responsibility of the job. Just highlights the main points. Less than 50 words."
+                                },
+                                job_location = new
+                                {
+                                    type = "string"
+                                },
+                                tech_stack = new
+                                {
+                                    type = "array",
+                                    items = new
+                                    {
+                                        type = "string"
+                                    }
+                                },
+                            },
+                            required = new JsonArray
+                            {
+                                "company_name",
+                                "job_title",
+                                "main_responsibility",
+                                "job_location",
+                                "tech_stack"
+                            },
+                            additionalProperties = false
+                        },
+                    },
+                },
+                tools = new JsonArray
+                {
+                    new
+                    {
+                        type = "web_search_preview",
+                        user_location = new
+                        {
+                            type = "approximate",
+                            country = "AU"
+                        },
+                        search_context_size = "medium"
+                    }
+                },
+                max_output_tokens = 512
+            };
+            var jsonContent = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+            var jsonContent2 = new StringContent(JsonSerializer.Serialize(requestData2), Encoding.UTF8, "application/json");
+            var task1 = Client.PostAsync("https://api.openai.com/v1/responses", jsonContent);
+            var task2 = Client.PostAsync("https://api.openai.com/v1/responses", jsonContent2);
+            await Task.WhenAll(task1, task2);
+            var response = await task1;
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var responseObject = JsonSerializer.Deserialize<OpenAIResponse>(responseContent);
+            var response2 = await task2;
+            RenderedText = responseObject?.output[0].content[0].text ?? string.Empty;
+            var responseContent2 = await response2.Content.ReadAsStringAsync();
+            var responseObject2 = JsonSerializer.Deserialize<OpenAIResponse>(responseContent2);
+            Logger.LogInformation(responseObject2?.ToString());
+
+            foreach (var output in responseObject2.output)
+            {
+                if (output.type == "message")
+                {
+                    jobSummary = JobSummary.FromJson(
+                        output.content[0].text);
+
+                    referers = await firebaseStorageService.GetUsersFromCompany(jobSummary.CompanyName);
+                    reviewers = await firebaseStorageService.GetReviewers();
                 }
-            },
-            max_output_tokens = 512
-        };
-        var jsonContent = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
-        var response = await Client.PostAsync("https://api.openai.com/v1/responses", jsonContent);
-        var responseContent = await response.Content.ReadAsStringAsync();
-        var responseObject = JsonSerializer.Deserialize<OpenAIResponse>(responseContent);
-        RenderedText = responseObject?.output[0].content[0].text ?? string.Empty;
-        Logger.LogInformation(responseContent);
-        IsLoading = false;
+            }
+
+            IsLoading = false;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error while uploading file", ex);
+        }
     }
 
 
