@@ -36,6 +36,8 @@
         {
             <InputFile accept=".pdf" @bind-Value="Model!.ResumeFile"
                        OnChange="args => { Model.ResumeFile = args.File;}"/>
+            <br/>
+            <br/>
         }
 
         @if (Model.ResumeFile != null)
@@ -47,11 +49,17 @@
             <p><strong>Selected File:</strong> @Model.SelectedResume.Name</p>
         }
 
-        <button type="submit" class="btn btn-primary" disabled="@isUploading">
-            Upload PDF
-        </button>
-    </EditForm>
+        <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
+                   class="form-control"/>
+        <br/>
+        <InputText @bind-Value="Model.Message" placeholder="Additional message..." class="form-control"/>
 
+        <br/>
+        <button type="submit" class="btn btn-primary" disabled="@isUploading">
+                Generate feedback
+        </button>           
+    </EditForm>
+    <br/>
 
     if (jobSummary != null)
     {
@@ -66,22 +74,26 @@
                 <p><strong>Tech Stack:</strong> @string.Join(", ", jobSummary.TechStack)</p>
             </CardBody>
         </Card>
+        <br/>
     }
-    else
+   
+    @if (uploadSuccess && jobSummary == null)
     {
-        <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
-                   class="form-control"/>
-    }
-
-
-    @if (uploadSuccess)
-    {
-        <p>File uploaded successfully!</p>
+        <p><i class="fa fa-check-circle" style="color: green;"></i> File uploaded successfully!</p>
     }
 
     @if (uploadError)
     {
         <p class="text-danger">Error uploading file: @errorMessage</p>
+    }
+
+    @if(isLoadingMain)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
     }
 
     @if (!string.IsNullOrEmpty(AIFeedback))
@@ -200,6 +212,7 @@ else
     private bool uploadSuccess = false;
     private bool uploadError = false;
     private bool isLoading = false;
+    private bool isLoadingMain = false;
     private string errorMessage = string.Empty;
     private object uploadModel = new object();
     private List<PdfFileMetaData> resumeList = new List<PdfFileMetaData>();
@@ -252,6 +265,7 @@ else
             isUploading = true;
             uploadSuccess = false;
             uploadError = false;
+            isLoadingMain = true;
 
             string userId = "test123";
             if (Model.ResumeFile != null)
@@ -414,6 +428,9 @@ else
                     reviewers = await firebaseStorageService.GetReviewers();
                 }
             }
+
+            isLoadingMain = false;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
