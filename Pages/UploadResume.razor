@@ -133,7 +133,9 @@
         var response = await Client.PostAsync("https://api.openai.com/v1/responses", jsonContent);
         var responseContent = await response.Content.ReadAsStringAsync();
         var responseObject = JsonSerializer.Deserialize<OpenAIResponse>(responseContent);
-        RenderedText = responseObject?.output[0].content[0].text ?? string.Empty;
+        if(responseObject != null)
+            RenderedText = responseObject?.output[0].content[0].text ?? string.Empty;
+            
         Logger.LogInformation(responseContent);
         IsLoading = false;
     }
