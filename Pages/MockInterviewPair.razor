@@ -1,0 +1,126 @@
+@page "/mockinterview"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Threading.Tasks
+@using Hackathon_VAIT_New.Services
+@using Hackathon_VAIT_New.Model
+
+@inject FirebaseStorageServices firebaseStorageService
+@inject IJSRuntime jsRuntime
+
+<h3>Find mock interview peer</h3>
+
+<div class="d-flex flex-row flex-wrap gap-4 p-2">
+
+    @if (mockInterviewProfiles.Count > 0)
+    {
+        @foreach (var item in mockInterviewProfiles)
+        {
+            <div class="d-flex flex-row bg-light rounded align-items-center" style="width: 600px;">
+                <div class="rounded overflow-hidden" style="width: 200px; height: 200px;">
+                    <Image Src="@item.User?.ProfilePictureUrl"
+                           Style="width: 200px; height:  200px; object-fit: cover; overflow: hidden;"></Image>
+                </div>
+                <div class="d-flex flex-column gap-2 flex-grow-1 px-4 py-2">
+                    <div class="d-flex flex-row gap-2 justify-content-between align-items-center">
+                        <div class="h5 mb-0">
+                            @item.User?.Name
+                        </div>
+                        <Button Size="ButtonSize.Small" Color="ButtonColor.Primary"
+                                onclick="@{() => { OpenLink(@item.User?.DiscordId ?? string.Empty); }}">Discord
+                        </Button>
+                    </div>
+                    <div class="" style="font-size: 16px;">
+                        @item.User?.Title @@ @item.User?.CompanyName
+                    </div>
+                    <div class="d-flex flex-row gap-1 align-items-center flex-wrap">
+
+                        @{
+                            foreach (var language in item.PreferredLanguage)
+                            {
+                                <div class="rounded-pill px-2 py-1 text-white small @GetRandomColor(language)">
+                                    @language
+                                </div>
+                            }
+                        }
+                    </div>
+                    <div class="d-flex flex-row gap-2 align-items-center flex-wrap">
+
+                        @{
+                            foreach (var time in item.Availability)
+                            {
+                                <div
+                                    class="bg-white rounded p-2 d-flex flex-row gap-2 justify-content-between align-items-center flex-grow-1">
+                                    <div class="rounded-pill px-2 py-1  small border-1">
+                                        @time.Day @time.StartTime.ToString(@"hh\:mm") - @time.EndTime.ToString(@"hh\:mm")
+                                    </div>
+                                    <Button Size="ButtonSize.ExtraSmall" Color="ButtonColor.Info"
+                                            onclick="@{() => { OpenGGCalendarEvent(item.User?.Email ?? string.Empty, item.User?.Name ?? string.Empty, time); }}">
+                                        Book a meeting
+                                    </Button>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <p>No profiles found.</p>
+    }
+</div>
+
+@code {
+
+    List<MockInterviewProfile> mockInterviewProfiles = new List<MockInterviewProfile>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        mockInterviewProfiles = await firebaseStorageService.GetMockProfiles();
+    }
+
+    public void OpenLink(string link)
+    {
+        jsRuntime.InvokeVoidAsync("open", "https://discordapp.com/users/" + link, "_blank");
+    }
+
+    private void OpenGGCalendarEvent(string email, string profileName, TimeSlot slot)
+    {
+        // find the approparite date and time
+        // if the date of the week has passed, add 7 days to the date
+        var slotDate = slot.Day;
+        var currentDate = DateTime.Now;
+        var daysToAdd = ((int)slotDate - (int)currentDate.DayOfWeek + 7) % 7;
+        var newDate = currentDate.AddDays(daysToAdd);
+        var startTime = new DateTime(newDate.Year, newDate.Month, newDate.Day, slot.StartTime.Hours, slot.StartTime.Minutes, 0).ToString("s");
+        var endTime = new DateTime(newDate.Year, newDate.Month, newDate.Day, slot.EndTime.Hours, slot.EndTime.Minutes, 0).ToString("s");
+
+        var eventName = $"{profileName} - Mock Interview";
+        var eventDescription = $"Mock interview with {profileName}";
+        var eventLocation = "GG Meet";
+
+        var url = $"https://calendar.google.com/calendar/render?action=TEMPLATE&text={eventName}&dates={startTime}/{endTime}&details={eventDescription}&location={eventLocation}&sf=true&output=xml&add={email}";
+
+        jsRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private string GetRandomColor(string language)
+    {
+        if (string.IsNullOrEmpty(language))
+        {
+            return "bg-primary";
+        }
+
+        return language switch
+        {
+            "C#" => "bg-primary",
+            "Java" => "bg-warning",
+            "Python" => "bg-danger",
+            "JavaScript" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+}

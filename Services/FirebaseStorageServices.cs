@@ -128,11 +128,11 @@ namespace Hackathon_VAIT_New.Services
                     resumeList.Add(resumeMetaData);
                 }
 
-                if(resumeList != null && resumeList.Any())
+                if (resumeList != null && resumeList.Any())
                 {
                     resumeList = resumeList.OrderByDescending(x => x.UploadDate).ToList();
                 }
-                
+
                 return resumeList;
             }
             catch (Exception ex)
@@ -243,6 +243,68 @@ namespace Hackathon_VAIT_New.Services
                 throw new Exception($"Error create users: {ex.Message}");
             }
         }
+
+        public async Task CreateMockInterviewProfiles()
+        {
+            List<MockInterviewProfile> profiles = new List<MockInterviewProfile>();
+            profiles = MockInterviewProfile.GetMockData();
+            try
+            {
+                foreach (var profile in profiles)
+                {
+                    await _firestoreDb.Collection("Profile").AddAsync(
+                        profile.ToDictionary()
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error create profiles: {ex.Message}");
+            }
+        }
+
+        public async Task<List<MockInterviewProfile>> GetMockProfiles()
+        {
+            try
+            {
+                List<User> users = new List<User>();
+
+                Query q = _firestoreDb.Collection("Account");
+                QuerySnapshot snapshot = await q.GetSnapshotAsync();
+
+                foreach (var document in snapshot.Documents)
+                {
+                    users.Add(User.FromDictionary(document.ToDictionary()));
+                }
+
+                List<MockInterviewProfile> mockProfiles = new List<MockInterviewProfile>();
+                Query q2 = _firestoreDb.Collection("Profile");
+                QuerySnapshot snapshot2 = await q2.GetSnapshotAsync();
+
+                foreach (var document in snapshot2.Documents)
+                {
+                    mockProfiles.Add(MockInterviewProfile.FromDictionary(document.ToDictionary()));
+                }
+
+                foreach (var profiles in mockProfiles)
+                {
+                    foreach (var user in users)
+                    {
+                        if (profiles.UserId == user.Id)
+                        {
+                            profiles.User = user;
+                        }
+                    }
+                }
+
+                return mockProfiles;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error getting profiles: {ex.Message}");
+            }
+        }
+
 
         public async Task<List<User>> GetUsers()
         {
