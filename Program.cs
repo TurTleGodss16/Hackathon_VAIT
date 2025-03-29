@@ -11,8 +11,6 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
 builder.Services.AddSingleton<FirebaseStorageServices>();
-builder.Services.AddSingleton<ResumeServices>();
-
 
 var app = builder.Build();
 
