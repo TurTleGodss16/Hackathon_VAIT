@@ -1,0 +1,155 @@
+@page "/resume-chat"
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using Hackathon_VAIT_New.Services
+@inject FirebaseStorageServices FirebaseStorageService
+@inject ILogger<UploadResume> Logger
+@inject HttpClient Client
+
+<EditForm Model="Model" OnValidSubmit="Submit" FormName="UploadResume">
+    <DataAnnotationsValidator/>
+    <ValidationSummary/>
+    <div class="d-flex flex-row gap-2 ">
+        <div class="d-flex flex-column gap-2 flex-grow-1">
+            <p class="h2">Choose Resume</p>
+            <InputFile accept=".pdf" @bind-Value="Model!.ResumeFile"
+                       OnChange="args => { 
+            Model.ResumeFile = args.File;}"
+            />
+        </div>
+
+        <div class="d-flex flex-column gap-2" style="min-width: 800px;">
+            <p>Job Description</p>
+            <InputText @bind-Value="Model!.JobDescriptionLink" placeholder="Enter job description link"
+                       class="form-control"
+
+            />
+            <br/>
+            @{
+                if (!string.IsNullOrEmpty(RenderedText))
+                {
+                    <div class="alert alert-info">
+                        <p class="h4">Feedback</p>
+                        <Markdown style="max-height: 600px;overflow-y:auto;">@RenderedText</Markdown>
+                    </div>
+                    ;
+                }
+                else
+                {
+                    <InputText @bind-Value="Model.Message" placeholder="Additional message..." class="form-control"/>
+                    <Button Type="ButtonType.Submit" Color="ButtonColor.Primary" Loading="@IsLoading">Send</Button>
+                }
+            }
+
+        </div>
+
+    </div>
+</EditForm>
+
+@code
+{
+    [SupplyParameterFromForm] private ResumeAnalyserModel? Model { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Model ??= new ResumeAnalyserModel();
+    }
+
+
+    public class ResumeAnalyserModel
+    {
+        [Required] [DataType(DataType.Upload)] public IBrowserFile? ResumeFile { get; set; }
+
+        [Required] [DataType(DataType.Text)] public string JobDescriptionLink { get; set; } = string.Empty;
+
+        [DataType(DataType.Text)] public string? Message { get; set; } = string.Empty;
+    }
+
+    public class OpenAIResponse
+    {
+        public Output[] output { get; set; }
+
+        public class Output
+        {
+            public Content[] content { get; set; }
+        }
+
+        public class Content
+        {
+            public string text { get; set; }
+        }
+    }
+
+    private string RenderedText { get; set; } = string.Empty;
+
+    private bool IsLoading { get; set; } = false;
+
+    private async Task Submit()
+    {
+        IsLoading = true;
+        var resumeDataUrl = await GetDataURL(Model!.ResumeFile);
+        var requestData = new
+        {
+            model = "gpt-4o-mini",
+            input = new JsonArray
+            {
+                new { role = "system", content = "Scrape job description and give feedback based on user resume file" },
+
+                new
+                {
+                    role = "user", content =
+                        new JsonArray
+                        {
+                            new { type = "input_text", text = "JD Link: " + Model?.JobDescriptionLink },
+                            new { type = "input_file", filename = Model!.ResumeFile.Name, file_data = resumeDataUrl },
+                        },
+                },
+            },
+            text = new
+            {
+                format = new
+                {
+                    type = "text"
+                }
+            },
+            tools = new JsonArray
+            {
+                new
+                {
+                    type = "web_search_preview",
+                    user_location = new
+                    {
+                        type = "approximate",
+                        country = "AU"
+                    },
+                    search_context_size = "medium"
+                }
+            },
+            max_output_tokens = 512
+        };
+        var jsonContent = new StringContent(JsonSerializer.Serialize(requestData), Encoding.UTF8, "application/json");
+        var response = await Client.PostAsync("https://api.openai.com/v1/responses", jsonContent);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var responseObject = JsonSerializer.Deserialize<OpenAIResponse>(responseContent);
+        RenderedText = responseObject?.output[0].content[0].text ?? string.Empty;
+        Logger.LogInformation(responseContent);
+        IsLoading = false;
+    }
+
+
+    async Task<string> GetDataURL(IBrowserFile pdfFile)
+    {
+        using var stream = pdfFile.OpenReadStream();
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        byte[] bytes = memoryStream.ToArray();
+
+        return "data:"
+               + pdfFile.ContentType
+               + ";base64,"
+               + Convert.ToBase64String(bytes);
+    }
+}
+
