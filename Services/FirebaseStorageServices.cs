@@ -128,6 +128,11 @@ namespace Hackathon_VAIT_New.Services
                     resumeList.Add(resumeMetaData);
                 }
 
+                if(resumeList != null && resumeList.Any())
+                {
+                    resumeList = resumeList.OrderByDescending(x => x.UploadDate).ToList();
+                }
+                
                 return resumeList;
             }
             catch (Exception ex)
