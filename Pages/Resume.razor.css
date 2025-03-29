@@ -1,0 +1,22 @@
+.btn-custom {
+    border-radius: 25px; /* Rounded corners */
+    padding: 10px 20px;   /* Adjust button size */
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.btn-selected {
+    background-color: #007bff; /* Highlight color for selected button */
+    color: white;
+    border: 1px solid #007bff;
+}
+
+.btn-unselected {
+    background-color: #f0f0f0; /* Grey color for unselected button */
+    color: #6c757d;
+    border: 1px solid #ccc;
+}
+
+.btn-custom:hover {
+    opacity: 0.8; /* Add a slight opacity effect on hover */
+}

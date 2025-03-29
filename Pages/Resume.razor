@@ -7,19 +7,32 @@
 @inject FirebaseStorageServices firebaseStorageService
 @inject IJSRuntime jsRuntime
 
+<h3>Upload Your Resume (PDF)</h3>
 
-<h3>Upload you resume (PDF)</h3>
-
-<EditForm Model="uploadModel" OnValidSubmit="HandleValidSubmit">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-
-    <InputFile OnChange="HandleFileSelected" />
-
-    <button type="submit" class="btn btn-primary" disabled="@isUploading">
-        Upload PDF
+<!-- Buttons for New Upload and Resume History -->
+<div class="mb-3">
+    <button class="btn-custom @((isUploadFormVisible ? "btn-selected" : "btn-unselected"))" @onclick="ShowUploadForm">
+        New Upload
     </button>
-</EditForm>
+    <button class="btn-custom @((isHistoryVisible ? "btn-selected" : "btn-unselected"))" @onclick="ShowFileHistory">
+        Resume History
+    </button>
+</div>
+
+@if (isUploadFormVisible)
+{
+    <!-- Upload Form -->
+    <EditForm Model="uploadModel" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <InputFile OnChange="HandleFileSelected" />
+
+        <button type="submit" class="btn btn-primary" disabled="@isUploading">
+            Upload PDF
+        </button>
+    </EditForm>
+}
 
 @if (uploadSuccess)
 {
@@ -31,44 +44,76 @@
     <p class="text-danger">Error uploading file: @errorMessage</p>
 }
 
-<button class="btn btn-secondary" @onclick='() => LoadFileHistory("test123")'>Resume history</button>
-
-@if (resumeList != null && resumeList.Count > 0)
+@if(isLoading)
 {
-    <table class="table table-striped mt-3">
-        <thead>
-            <tr>
-                <th>File Name</th>
-                <th>Upload Date</th>
-                <th>Size (KB)</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var file in resumeList)
-            {
-                <tr>
-                    <td>@file.FileName</td>
-                    <td>@file.UploadDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td>@(file.FileSize / 1024) KB</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" @onclick='() => DownloadResume("test123", file.Id)'>Download</button>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
 }
+else
+{
+    @if (isHistoryVisible)
+    {
+        <h4>Recent uploaded</h4>
+        @if (resumeList != null && resumeList.Count > 0)
+        {
+            <table class="table table-striped mt-3">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Upload Date</th>
+                        <th>Size (KB)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in resumeList)
+                    {
+                        <tr>
+                            <td>@file.FileName</td>
+                            <td>@file.UploadDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@(file.FileSize / 1024) KB</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick='() => DownloadResume("test123", file.Id)'>Download</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>No resume history available.</p>
+        }
+    }
+}
+
 
 @code {
     private IBrowserFile selectedFile;
     private bool isUploading = false;
     private bool uploadSuccess = false;
     private bool uploadError = false;
+    private bool isLoading = false;
     private string errorMessage = string.Empty;
     private object uploadModel = new object();
-
     private List<PdfFileMetaData> resumeList = new List<PdfFileMetaData>();
+    private bool isUploadFormVisible = true;
+    private bool isHistoryVisible = false;
+
+    private void ShowUploadForm()
+    {
+        isUploadFormVisible = true;
+        isHistoryVisible = false;
+    }
+    private void ShowFileHistory()
+    {
+        isUploadFormVisible = false;
+        isHistoryVisible = true;
+        LoadFileHistory("test123");
+    }
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
@@ -109,7 +154,8 @@
     {
         try
         {
-            if(String.IsNullOrEmpty(userId))
+            isLoading = true;
+            if (String.IsNullOrEmpty(userId))
             {
                 errorMessage = "User ID cannot be null or empty.";
                 uploadError = true;
@@ -117,11 +163,16 @@
             }
 
             resumeList = await firebaseStorageService.GetResumeHistory(userId);
+            if(resumeList != null && resumeList.Any())
+                isLoading = false;
+
             StateHasChanged();
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-            throw new Exception("Error loading file history", ex);
+            uploadError = true;
+            isLoading = false;
+            errorMessage = "Error loading file history: " + ex.Message;
         }
     }
 
@@ -129,7 +180,7 @@
     {
         try
         {
-            if(String.IsNullOrEmpty(userId) || String.IsNullOrEmpty(fileId))
+            if (String.IsNullOrEmpty(userId) || String.IsNullOrEmpty(fileId))
             {
                 errorMessage = "User ID and File ID cannot be null or empty.";
                 uploadError = true;
@@ -145,13 +196,11 @@
                 var dashboardModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "../../Pages/Resume.razor.js");
                 await jsRuntime.InvokeVoidAsync("downloadFile", fileName, contentType, fileBytes);
             }
-
-
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-            throw new Exception("Error downloading file", ex);
+            uploadError = true;
+            errorMessage = "Error downloading file: " + ex.Message;
         }
     }
-
 }
