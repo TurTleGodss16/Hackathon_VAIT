@@ -1,25 +1,74 @@
 @page "/resume"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Threading.Tasks
+@using Hackathon_VAIT_New.Services
 
-@using Hackathon_VAIT_New.Services;
+@inject FirebaseStorageServices firebaseStorageService
 
-@inject IJSRuntime jsRuntime
-@inject FirebaseStorageService firebaseStorageService
 
-<div>
+<h3>Upload PDF as Binary</h3>
 
-</div>
+<EditForm Model="uploadModel" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <InputFile OnChange="HandleFileSelected" />
+
+    <button type="submit" class="btn btn-primary" disabled="@isUploading">
+        Upload PDF
+    </button>
+</EditForm>
+
+@if (uploadSuccess)
+{
+    <p>File uploaded successfully!</p>
+}
+
+@if (uploadError)
+{
+    <p class="text-danger">Error uploading file: @errorMessage</p>
+}
 
 @code {
-    public async Task<string> UploadResume()
+    private IBrowserFile selectedFile;
+    private bool isUploading = false;
+    private bool uploadSuccess = false;
+    private bool uploadError = false;
+    private string errorMessage = string.Empty;
+    private object uploadModel = new object(); // Your form model here
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
+        selectedFile = e.File;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (selectedFile == null)
+        {
+            errorMessage = "Please select a PDF file.";
+            uploadError = true;
+            return;
+        }
+
         try
         {
-            return await firebaseStorageService.UploadPDFAsync("Test");
+            isUploading = true;
+            uploadSuccess = false;
+            uploadError = false;
+
+            string userId = "test123";
+            await firebaseStorageService.UploadPdfAsBinaryAsync(selectedFile, userId);
+            uploadSuccess = true;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
-            return "";
+            uploadError = true;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isUploading = false;
         }
     }
 }
