@@ -1,1 +1,25 @@
+@page "/resume"
+
+@using Hackathon_VAIT_New.Services;
+
 @inject IJSRuntime jsRuntime
+@inject FirebaseStorageService firebaseStorageService
+
+<div>
+
+</div>
+
+@code {
+    public async Task<string> UploadResume()
+    {
+        try
+        {
+            return await firebaseStorageService.UploadPDFAsync("Test");
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return "";
+        }
+    }
+}

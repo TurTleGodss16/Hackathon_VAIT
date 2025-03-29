@@ -264,5 +264,8 @@ __pycache__/
 .env
 
 *.pyc
+obj/Debug/net8.0/Hackathon_VAIT_New.AssemblyInfo.cs
+obj/Debug/net8.0/Hackathon_VAIT_New.AssemblyInfoInputs.cache
+
 
 firebase.json
