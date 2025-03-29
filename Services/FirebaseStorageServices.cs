@@ -53,34 +53,41 @@ namespace Hackathon_VAIT_New.Services
 
         public async Task<string> UploadPdfAsBinaryAsync(IBrowserFile file, string userId)
         {
-            const long maxFileSize = 10 * 1024 * 1024; // 10MB
-            if (file.Size > maxFileSize)
+            try
             {
-                throw new Exception("File size exceeds the maximum limit of 10MB.");
+                const long maxFileSize = 10 * 1024 * 1024; // 10MB
+                if (file.Size > maxFileSize)
+                {
+                    throw new Exception("File size exceeds the maximum limit of 10MB.");
+                }
+
+                byte[] fileBytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await file.OpenReadStream(maxAllowedSize: maxFileSize).CopyToAsync(memoryStream);
+                    fileBytes = memoryStream.ToArray();
+                }
+
+                var document = new Dictionary<string, object>
+                {
+                    { "fileName", file.Name },
+                    { "uploadDate", DateTime.UtcNow },
+                    { "size", file.Size },
+                    { "contentType", file.ContentType },
+                    { "fileData", fileBytes }
+                };
+
+                await _firestoreDb.Collection("User")
+                                .Document(userId)
+                                .Collection("pdfUploads")
+                                .AddAsync(document);
+
+                return "File saved successfully";
             }
-
-            byte[] fileBytes;
-            using (var memoryStream = new MemoryStream())
+            catch(Exception ex)
             {
-                await file.OpenReadStream(maxAllowedSize: maxFileSize).CopyToAsync(memoryStream);
-                fileBytes = memoryStream.ToArray();
+                throw new Exception($"Error uploading file: {ex.Message}");
             }
-
-            var document = new Dictionary<string, object>
-            {
-                { "fileName", file.Name },
-                { "uploadDate", DateTime.UtcNow },
-                { "size", file.Size },
-                { "contentType", file.ContentType },
-                { "fileData", fileBytes }
-            };
-
-            await _firestoreDb.Collection("User")
-                               .Document(userId)
-                               .Collection("pdfUploads")
-                               .AddAsync(document);
-
-            return "File saved successfully";
         }
     }
 }
