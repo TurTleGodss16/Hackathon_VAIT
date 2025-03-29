@@ -8,6 +8,8 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Components.Forms;
+using Hackathon_VAIT_New.Model;
+using Google.Cloud.Firestore.V1;
 
 namespace Hackathon_VAIT_New.Services
 {
@@ -89,5 +91,88 @@ namespace Hackathon_VAIT_New.Services
                 throw new Exception($"Error uploading file: {ex.Message}");
             }
         }
+
+        public async Task<List<PdfFileMetaData>> GetResumeHistory(string userId)
+        {
+            try
+            {
+                if(string.IsNullOrEmpty(userId))
+                {
+                    throw new ArgumentException("User ID cannot be null or empty.");
+                }
+
+                var resumeList = new List<PdfFileMetaData>();
+
+                Query q = _firestoreDb.Collection("User")
+                              .Document(userId)
+                              .Collection("pdfUploads");
+
+                QuerySnapshot snapshot = await q.GetSnapshotAsync();
+
+                foreach (var document in snapshot.Documents)
+                {
+                    var data = document.ToDictionary();
+                    var resumeMetaData = new PdfFileMetaData
+                    {
+                        Id = document.Id,
+                        FileName = data.ContainsKey("fileName") ? data["fileName"].ToString() : "Invalid file name",
+                        UploadDate = data.ContainsKey("uploadDate") ? ((Timestamp)data["uploadDate"]).ToDateTime() : DateTime.MinValue,
+                        FileSize = data.ContainsKey("size") ? Convert.ToInt64(data["size"]) : 0,
+                        ContentType = data.ContainsKey("contentType") ? data["contentType"].ToString() : "application/pdf"
+                    };
+                    resumeList.Add(resumeMetaData);
+                }
+
+                return resumeList;
+            }
+            catch(Exception ex)
+            {
+                throw new Exception($"Error fetching resume history: {ex.Message}");
+            }
+        }
+
+        public async Task<byte[]> DownloadResumePdfFile(string userId, string fileId)
+        {
+            try
+            {
+                var resumeRef = _firestoreDb.Collection("User")
+                                            .Document(userId)
+                                            .Collection("pdfUploads")
+                                            .Document(fileId);
+
+                var resumeSnapshot = await resumeRef.GetSnapshotAsync();
+
+                if (resumeSnapshot.Exists)
+                {
+                    var data = resumeSnapshot.ToDictionary();
+
+                    if (data.ContainsKey("fileData"))
+                    {
+                        var testData = data["fileData"];
+                        var fileData = data["fileData"];
+
+                        if(fileData is Blob blobData)
+                        {
+                            return blobData.ByteString.ToByteArray();
+                        }
+                        else if (fileData is byte[] byteArray)
+                        {
+                            return byteArray;
+                        }
+                        else
+                        {
+                            throw new Exception("Invalid file data format.");
+                        }
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error downloading file", ex);
+            }
+        }
+
     }
 }

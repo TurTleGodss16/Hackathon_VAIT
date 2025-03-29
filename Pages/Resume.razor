@@ -2,8 +2,10 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Threading.Tasks
 @using Hackathon_VAIT_New.Services
+@using Hackathon_VAIT_New.Model
 
 @inject FirebaseStorageServices firebaseStorageService
+@inject IJSRuntime jsRuntime
 
 
 <h3>Upload you resume (PDF)</h3>
@@ -29,13 +31,44 @@
     <p class="text-danger">Error uploading file: @errorMessage</p>
 }
 
+<button class="btn btn-secondary" @onclick='() => LoadFileHistory("test123")'>Resume history</button>
+
+@if (resumeList != null && resumeList.Count > 0)
+{
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Upload Date</th>
+                <th>Size (KB)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var file in resumeList)
+            {
+                <tr>
+                    <td>@file.FileName</td>
+                    <td>@file.UploadDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@(file.FileSize / 1024) KB</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" @onclick='() => DownloadResume("test123", file.Id)'>Download</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
 @code {
     private IBrowserFile selectedFile;
     private bool isUploading = false;
     private bool uploadSuccess = false;
     private bool uploadError = false;
     private string errorMessage = string.Empty;
-    private object uploadModel = new object(); // Your form model here
+    private object uploadModel = new object();
+
+    private List<PdfFileMetaData> resumeList = new List<PdfFileMetaData>();
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
@@ -71,4 +104,54 @@
             isUploading = false;
         }
     }
+
+    private async Task LoadFileHistory(string userId)
+    {
+        try
+        {
+            if(String.IsNullOrEmpty(userId))
+            {
+                errorMessage = "User ID cannot be null or empty.";
+                uploadError = true;
+                return;
+            }
+
+            resumeList = await firebaseStorageService.GetResumeHistory(userId);
+            StateHasChanged();
+        }
+        catch(Exception ex)
+        {
+            throw new Exception("Error loading file history", ex);
+        }
+    }
+
+    private async Task DownloadResume(string userId, string fileId)
+    {
+        try
+        {
+            if(String.IsNullOrEmpty(userId) || String.IsNullOrEmpty(fileId))
+            {
+                errorMessage = "User ID and File ID cannot be null or empty.";
+                uploadError = true;
+                return;
+            }
+
+            byte[] fileBytes = await firebaseStorageService.DownloadResumePdfFile(userId, fileId);
+
+            if (fileBytes != null)
+            {
+                string fileName = "DownloadedResume.pdf";
+                string contentType = "application/pdf";
+                var dashboardModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "../../Pages/Resume.razor.js");
+                await jsRuntime.InvokeVoidAsync("downloadFile", fileName, contentType, fileBytes);
+            }
+
+
+        }
+        catch(Exception ex)
+        {
+            throw new Exception("Error downloading file", ex);
+        }
+    }
+
 }
