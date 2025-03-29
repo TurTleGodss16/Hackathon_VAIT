@@ -3,15 +3,24 @@ using Microsoft.AspNetCore.Components.Web;
 using Hackathon_VAIT_New.Data;
 using DotNetEnv;
 using Hackathon_VAIT_New.Services;
+using Hackathon_VAIT_New.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+builder.Services.AddBlazorBootstrap();
+
+
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
 builder.Services.AddSingleton<FirebaseStorageService>();
+builder.Services.AddSingleton<OpenAIService>();
 
+builder.Services.AddScoped(sp => new HttpClient(new AddHeadersDelegatingHandler())
+{
+    BaseAddress = new Uri("https://api.openai.com/v1/responses")
+});
 
 var app = builder.Build();
 
