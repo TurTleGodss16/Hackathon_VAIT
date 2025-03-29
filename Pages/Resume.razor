@@ -32,8 +32,11 @@
         <DataAnnotationsValidator />
         <ValidationSummary />
 
-        <InputFile accept=".pdf" @bind-Value="Model!.ResumeFile"
+        @if(Model.SelectedResume == null && Model.ResumeFile == null)
+        {
+            <InputFile accept=".pdf" @bind-Value="Model!.ResumeFile"
                        OnChange="args => { Model.ResumeFile = args.File;}"/>
+        }
 
         @if (Model.ResumeFile != null)
         {
